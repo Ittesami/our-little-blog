@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff8f5;
+  --surface: #ffffff;
+  --foreground: #4a3540;
+  --muted: #8a7480;
+  --pink: #f6a6c1;
+  --pink-dark: #ec7fae;
+  --lavender: #d8c9f0;
+  --cream: #fff1e6;
+  --border: #f3dce6;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-pink: var(--pink);
+  --color-pink-dark: var(--pink-dark);
+  --color-lavender: var(--lavender);
+  --color-cream: var(--cream);
+  --color-border: var(--border);
+  --font-body: var(--font-poppins);
+  --font-heading: var(--font-caveat);
 }
 
 body {
   background: var(--background);
+  background-image: radial-gradient(circle at 10% 10%, #ffe9f1 0%, transparent 40%),
+    radial-gradient(circle at 90% 20%, #f1e7ff 0%, transparent 45%),
+    radial-gradient(circle at 50% 100%, #fff1df 0%, transparent 50%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), sans-serif;
+}
+
+.font-heading {
+  font-family: var(--font-heading), cursive;
+}
+
+::selection {
+  background: var(--pink);
+  color: white;
 }

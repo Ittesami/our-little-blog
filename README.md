@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Our Little Blog 💌
 
-## Getting Started
+A cozy, private blogging site built with Next.js, MongoDB, and Cloudinary. You post memories and daily notes from `/admin` (password protected); anyone with the link can read and leave comments.
 
-First, run the development server:
+## Features
+
+- Posts are tied to a date you choose, with a title, story, and an optional photo
+- A "message for the day" you can set per date, shown at the top of the home page
+- Posts feed with a grid (tile) view and a list view, like Instagram
+- Comments open to anyone — no account needed, just a name
+- Only `/admin` can create posts or messages, gated by a password
+
+## 1. Install dependencies
+
+```bash
+npm install
+```
+
+## 2. Set up environment variables
+
+Copy `.env.example` to `.env.local` and fill in real values (`.env.local` currently has placeholders):
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | What it's for | Where to get it |
+| --- | --- | --- |
+| `MONGODB_URI` | Database connection string | Create a free cluster at [MongoDB Atlas](https://www.mongodb.com/atlas), then "Connect" → "Drivers" for the URI |
+| `CLOUDINARY_CLOUD_NAME` | Image hosting | [Cloudinary dashboard](https://console.cloudinary.com/) home page |
+| `CLOUDINARY_API_KEY` | Image hosting | Same Cloudinary dashboard |
+| `CLOUDINARY_API_SECRET` | Image hosting | Same Cloudinary dashboard |
+| `ADMIN_PASSWORD` | The password you'll type at `/admin` to log in | Pick your own |
+| `ADMIN_SESSION_SECRET` | Signs the admin login cookie so it can't be forged | Generate with the command below |
+
+Generate a random secret:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## 3. Run it
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` for the blog, and `http://localhost:3000/admin` to log in and post.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Notes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Everyone can read posts and leave comments; only someone with `ADMIN_PASSWORD` can create posts or set the daily message.
+- Deleting a post also removes its photo from Cloudinary and its comments.
+- To deploy (e.g. on Vercel), set the same environment variables in your hosting provider's dashboard.
