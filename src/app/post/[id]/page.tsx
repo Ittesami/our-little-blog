@@ -8,6 +8,8 @@ import { serializePost, serializeComment } from "@/lib/serialize";
 import CommentSection from "@/components/CommentSection";
 import MediaGallery from "@/components/MediaGallery";
 
+export const dynamic = "force-dynamic";
+
 export default async function PostPage(props: PageProps<"/post/[id]">) {
   const { id } = await props.params;
   await connectToDatabase();

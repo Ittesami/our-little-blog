@@ -6,6 +6,8 @@ import MessageForm from "@/components/admin/MessageForm";
 import PostsList from "@/components/admin/PostsList";
 import LogoutButton from "@/components/admin/LogoutButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   await connectToDatabase();
   const posts = await Post.find().sort({ date: -1 }).lean();

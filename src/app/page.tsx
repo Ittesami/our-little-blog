@@ -5,6 +5,8 @@ import { serializePost, serializeMessage } from "@/lib/serialize";
 import MessageOfDay from "@/components/MessageOfDay";
 import PostsGallery from "@/components/PostsGallery";
 
+export const dynamic = "force-dynamic";
+
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
