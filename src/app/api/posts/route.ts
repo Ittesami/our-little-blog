@@ -4,10 +4,24 @@ import Post, { type IPost, type IMediaItem } from "@/models/Post";
 import { uploadMediaBuffer } from "@/lib/cloudinary";
 import { serializePost } from "@/lib/serialize";
 import { MAX_MEDIA_ITEMS } from "@/lib/constants";
+import { parseDateOnly, utcDayRange } from "@/lib/date";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   await connectToDatabase();
-  const posts = await Post.find().sort({ date: -1, createdAt: -1 }).lean();
+
+  const dateParam = request.nextUrl.searchParams.get("date");
+  let filter = {};
+
+  if (dateParam) {
+    const day = parseDateOnly(dateParam);
+    if (!day) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+    }
+    const { start, end } = utcDayRange(day);
+    filter = { date: { $gte: start, $lt: end } };
+  }
+
+  const posts = await Post.find(filter).sort({ date: -1, createdAt: -1 }).lean();
   return NextResponse.json({
     posts: posts.map((p) => serializePost(p as unknown as IPost)),
   });
@@ -29,7 +43,8 @@ export async function POST(request: NextRequest) {
   if (typeof content !== "string" || !content.trim()) {
     return NextResponse.json({ error: "Content is required" }, { status: 400 });
   }
-  if (typeof dateValue !== "string" || Number.isNaN(Date.parse(dateValue))) {
+  const postDate = typeof dateValue === "string" ? parseDateOnly(dateValue) : null;
+  if (!postDate) {
     return NextResponse.json({ error: "A valid date is required" }, { status: 400 });
   }
   if (mediaFiles.length > MAX_MEDIA_ITEMS) {
@@ -60,7 +75,7 @@ export async function POST(request: NextRequest) {
   const post = await Post.create({
     title: title.trim(),
     content: content.trim(),
-    date: new Date(dateValue),
+    date: postDate,
     media,
   });
 

@@ -35,13 +35,19 @@ function CoverThumbnail({ item, alt, sizes }: { item: PostMedia; alt: string; si
   );
 }
 
-export default function PostsGallery({ posts }: { posts: PostSummary[] }) {
+export default function PostsGallery({
+  posts,
+  emptyMessage,
+}: {
+  posts: PostSummary[];
+  emptyMessage?: string;
+}) {
   const [view, setView] = useState<"grid" | "list">("grid");
 
   if (posts.length === 0) {
     return (
       <p className="py-20 text-center text-muted">
-        No posts yet — check back soon 💕
+        {emptyMessage ?? "No posts yet — check back soon 💕"}
       </p>
     );
   }
@@ -119,33 +125,58 @@ export default function PostsGallery({ posts }: { posts: PostSummary[] }) {
           })}
         </div>
       ) : (
-        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="flex flex-col gap-4">
           {posts.map((post) => {
             const cover = post.media[0];
             return (
               <Link
                 key={post.id}
                 href={`/post/${post.id}`}
-                className="flex items-center gap-4 p-4 transition hover:bg-cream/60"
+                className="block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition hover:shadow-md"
               >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-cream">
-                  {cover ? (
-                    <CoverThumbnail item={cover} alt={post.title} sizes="64px" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-lg">💗</div>
-                  )}
-                  {post.media.length > 1 && (
-                    <span className="absolute bottom-0.5 right-0.5 rounded-full bg-black/50 px-1 text-[10px] text-white">
-                      {post.media.length}
-                    </span>
-                  )}
+                <div className="flex items-center gap-3 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-lg">
+                    💌
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{post.title}</p>
+                    <p className="text-xs text-muted">
+                      {format(new Date(post.date), "MMMM d, yyyy")}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{post.title}</p>
-                  <p className="line-clamp-1 text-sm text-muted">{post.content}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {format(new Date(post.date), "MMM d, yyyy")} · 💬 {post.commentCount}
+
+                {post.content && (
+                  <p className="line-clamp-3 whitespace-pre-wrap px-4 pb-3 text-sm leading-relaxed">
+                    {post.content}
                   </p>
+                )}
+
+                {cover && (
+                  <div className="relative aspect-[4/3] w-full bg-cream">
+                    <CoverThumbnail
+                      item={cover}
+                      alt={post.title}
+                      sizes="(max-width: 768px) 100vw, 672px"
+                    />
+                    {cover.type === "video" && (
+                      <span className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+                        ▶ Video
+                      </span>
+                    )}
+                    {post.media.length > 1 && (
+                      <span className="absolute left-3 top-3 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+                        🖼 {post.media.length} items
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1 border-t border-border px-4 py-3 text-xs text-muted">
+                  <span>💬</span>
+                  <span>
+                    {post.commentCount} comment{post.commentCount === 1 ? "" : "s"}
+                  </span>
                 </div>
               </Link>
             );

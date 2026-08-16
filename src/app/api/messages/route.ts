@@ -2,19 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Message from "@/models/Message";
 import { serializeMessage } from "@/lib/serialize";
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import { parseDateOnly, startOfUtcToday } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   await connectToDatabase();
   const dateParam = request.nextUrl.searchParams.get("date");
 
   if (dateParam) {
-    const day = startOfDay(new Date(dateParam));
+    const day = parseDateOnly(dateParam);
+    if (!day) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+    }
     const message = await Message.findOne({ date: day }).lean();
     return NextResponse.json({
       message: message
@@ -23,8 +21,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const today = startOfDay(new Date());
-  const message = await Message.findOne({ date: { $lte: today } })
+  const message = await Message.findOne({ date: { $lte: startOfUtcToday() } })
     .sort({ date: -1 })
     .lean();
 
@@ -43,12 +40,12 @@ export async function POST(request: NextRequest) {
   if (!text) {
     return NextResponse.json({ error: "Message text is required" }, { status: 400 });
   }
-  if (!dateValue || Number.isNaN(Date.parse(dateValue))) {
+  const day = dateValue ? parseDateOnly(dateValue) : null;
+  if (!day) {
     return NextResponse.json({ error: "A valid date is required" }, { status: 400 });
   }
 
   await connectToDatabase();
-  const day = startOfDay(new Date(dateValue));
 
   const message = await Message.findOneAndUpdate(
     { date: day },
