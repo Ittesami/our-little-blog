@@ -35,6 +35,8 @@ function CoverThumbnail({ item, alt, sizes }: { item: PostMedia; alt: string; si
   );
 }
 
+const EXPAND_THRESHOLD = 180;
+
 export default function PostsGallery({
   posts,
   emptyMessage,
@@ -43,6 +45,21 @@ export default function PostsGallery({
   emptyMessage?: string;
 }) {
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   if (posts.length === 0) {
     return (
@@ -104,22 +121,31 @@ export default function PostsGallery({
                   </div>
                 )}
 
-                {cover?.type === "video" && (
-                  <span className="absolute right-2 top-2 rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white">
-                    ▶
-                  </span>
-                )}
-                {post.media.length > 1 && (
-                  <span className="absolute left-2 top-2 rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white">
-                    🖼 {post.media.length}
-                  </span>
+                {cover && (
+                  <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/10 to-transparent p-2">
+                    <p className="text-[10px] text-white/85">
+                      {format(new Date(post.date), "MMM d, yyyy")}
+                    </p>
+                    <p className="line-clamp-1 text-xs font-semibold text-white">
+                      {post.title}
+                    </p>
+                  </div>
                 )}
 
-                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/55 via-transparent to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                  <span className="line-clamp-1 text-xs font-medium text-white">
-                    {post.title}
-                  </span>
-                </div>
+                {(cover?.type === "video" || post.media.length > 1) && (
+                  <div className="absolute bottom-2 right-2 flex gap-1">
+                    {cover?.type === "video" && (
+                      <span className="rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white">
+                        ▶
+                      </span>
+                    )}
+                    {post.media.length > 1 && (
+                      <span className="rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white">
+                        🖼 {post.media.length}
+                      </span>
+                    )}
+                  </div>
+                )}
               </Link>
             );
           })}
@@ -147,9 +173,24 @@ export default function PostsGallery({
                 </div>
 
                 {post.content && (
-                  <p className="line-clamp-3 whitespace-pre-wrap px-4 pb-3 text-sm leading-relaxed">
-                    {post.content}
-                  </p>
+                  <div className="px-4 pb-3">
+                    <p
+                      className={`whitespace-pre-wrap text-sm leading-relaxed ${
+                        expandedIds.has(post.id) ? "" : "line-clamp-3"
+                      }`}
+                    >
+                      {post.content}
+                    </p>
+                    {post.content.length > EXPAND_THRESHOLD && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleExpanded(post.id, e)}
+                        className="mt-1 text-xs font-medium text-pink-dark hover:underline"
+                      >
+                        {expandedIds.has(post.id) ? "View less" : "View more"}
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {cover && (

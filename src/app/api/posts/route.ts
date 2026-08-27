@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Post, { type IPost, type IMediaItem } from "@/models/Post";
+import Message from "@/models/Message";
 import { uploadMediaBuffer } from "@/lib/cloudinary";
 import { serializePost } from "@/lib/serialize";
 import { MAX_MEDIA_ITEMS } from "@/lib/constants";
 import { parseDateOnly, utcDayRange } from "@/lib/date";
+
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   await connectToDatabase();
@@ -64,12 +67,29 @@ export async function POST(request: NextRequest) {
 
   await connectToDatabase();
 
-  const media: IMediaItem[] = [];
-  for (const file of mediaFiles) {
-    const type = file.type.startsWith("video/") ? "video" : "image";
-    const arrayBuffer = await file.arrayBuffer();
-    const uploaded = await uploadMediaBuffer(Buffer.from(arrayBuffer), type);
-    media.push(uploaded);
+  const conflictingMessage = await Message.exists({ date: postDate });
+  if (conflictingMessage) {
+    return NextResponse.json(
+      { error: "This day already has a message. Remove it first if you want to add a post instead." },
+      { status: 409 }
+    );
+  }
+
+  let media: IMediaItem[];
+  try {
+    media = await Promise.all(
+      mediaFiles.map(async (file) => {
+        const type = file.type.startsWith("video/") ? "video" : "image";
+        const arrayBuffer = await file.arrayBuffer();
+        return uploadMediaBuffer(Buffer.from(arrayBuffer), type);
+      })
+    );
+  } catch (err) {
+    console.error("Media upload failed:", err);
+    return NextResponse.json(
+      { error: "Failed to upload photos/videos. Please try again." },
+      { status: 502 }
+    );
   }
 
   const post = await Post.create({

@@ -17,6 +17,7 @@ export default function MessageForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [hasConflictingPost, setHasConflictingPost] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,9 +26,14 @@ export default function MessageForm() {
       setLoading(true);
       setSaved(false);
       try {
-        const res = await fetch(`/api/messages?date=${date}`);
-        const data = await res.json();
-        if (!cancelled) setText(data.message?.text ?? "");
+        const [messageData, postsData] = await Promise.all([
+          fetch(`/api/messages?date=${date}`).then((r) => r.json()),
+          fetch(`/api/posts?date=${date}`).then((r) => r.json()),
+        ]);
+        if (!cancelled) {
+          setText(messageData.message?.text ?? "");
+          setHasConflictingPost((postsData.posts ?? []).length > 0);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -42,6 +48,11 @@ export default function MessageForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (hasConflictingPost) {
+      setError("This day already has a post. Remove it first if you want to add a message instead.");
+      return;
+    }
 
     if (!text.trim()) {
       setError("Message text is required.");
@@ -87,14 +98,20 @@ export default function MessageForm() {
           onChange={(e) => setText(e.target.value)}
           placeholder="Something sweet for today..."
           rows={3}
-          className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark"
+          disabled={hasConflictingPost}
+          className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark disabled:opacity-50"
         />
       </div>
+      {hasConflictingPost && !loading && (
+        <p className="text-sm text-red-500">
+          This day already has a post. Remove it first if you want to add a message instead.
+        </p>
+      )}
       {error && <p className="text-sm text-red-500">{error}</p>}
       {saved && !submitting && <p className="text-sm text-pink-dark">Saved ♡</p>}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || hasConflictingPost}
         className="rounded-full bg-pink-dark px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Saving..." : "Save message"}

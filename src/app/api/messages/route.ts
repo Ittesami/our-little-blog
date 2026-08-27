@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Message from "@/models/Message";
+import Post from "@/models/Post";
 import { serializeMessage } from "@/lib/serialize";
-import { parseDateOnly, startOfUtcToday } from "@/lib/date";
+import { parseDateOnly, startOfUtcToday, utcDayRange } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   await connectToDatabase();
@@ -46,6 +47,15 @@ export async function POST(request: NextRequest) {
   }
 
   await connectToDatabase();
+
+  const { start, end } = utcDayRange(day);
+  const conflictingPost = await Post.exists({ date: { $gte: start, $lt: end } });
+  if (conflictingPost) {
+    return NextResponse.json(
+      { error: "This day already has a post. Remove it first if you want to add a message instead." },
+      { status: 409 }
+    );
+  }
 
   const message = await Message.findOneAndUpdate(
     { date: day },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { MAX_MEDIA_ITEMS } from "@/lib/constants";
 
@@ -18,6 +18,27 @@ export default function NewPostForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasConflictingMessage, setHasConflictingMessage] = useState(false);
+  const [checkingDate, setCheckingDate] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkDate() {
+      setCheckingDate(true);
+      try {
+        const data = await fetch(`/api/messages?date=${date}`).then((r) => r.json());
+        if (!cancelled) setHasConflictingMessage(Boolean(data.message));
+      } finally {
+        if (!cancelled) setCheckingDate(false);
+      }
+    }
+
+    checkDate();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
 
   function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -38,6 +59,11 @@ export default function NewPostForm() {
     e.preventDefault();
     setError(null);
 
+    if (hasConflictingMessage) {
+      setError("This day already has a message. Remove it first if you want to add a post instead.");
+      return;
+    }
+
     if (!title.trim() || !content.trim()) {
       setError("Title and content are required.");
       return;
@@ -52,8 +78,8 @@ export default function NewPostForm() {
       for (const file of files) formData.append("media", file);
 
       const res = await fetch("/api/posts", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Something went wrong. Please try again.");
 
       setTitle("");
       setContent("");
@@ -86,7 +112,8 @@ export default function NewPostForm() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="A title for this memory"
-          className="mt-1 w-full rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark"
+          disabled={hasConflictingMessage}
+          className="mt-1 w-full rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark disabled:opacity-50"
         />
       </div>
       <div>
@@ -96,9 +123,15 @@ export default function NewPostForm() {
           onChange={(e) => setContent(e.target.value)}
           placeholder="Write about it..."
           rows={5}
-          className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark"
+          disabled={hasConflictingMessage}
+          className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark disabled:opacity-50"
         />
       </div>
+      {hasConflictingMessage && !checkingDate && (
+        <p className="text-sm text-red-500">
+          This day already has a message. Remove it first if you want to add a post instead.
+        </p>
+      )}
       <div>
         <label className="text-xs text-muted">
           Photos & videos (optional, up to {MAX_MEDIA_ITEMS})
@@ -108,7 +141,8 @@ export default function NewPostForm() {
           accept="image/*,video/*"
           multiple
           onChange={handleFilesChange}
-          className="mt-1 block w-full text-sm"
+          disabled={hasConflictingMessage}
+          className="mt-1 block w-full text-sm disabled:opacity-50"
         />
         {files.length > 0 && (
           <ul className="mt-2 space-y-1">
@@ -136,7 +170,7 @@ export default function NewPostForm() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || hasConflictingMessage}
         className="rounded-full bg-pink-dark px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Posting..." : "Publish post"}
