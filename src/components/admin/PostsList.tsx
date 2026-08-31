@@ -36,14 +36,22 @@ export default function PostsList({ posts }: { posts: PostSummary[] }) {
             <p className="truncate font-medium">{post.title}</p>
             <p className="text-xs text-muted">{format(new Date(post.date), "MMM d, yyyy")}</p>
           </Link>
-          <button
-            type="button"
-            onClick={() => handleDelete(post.id)}
-            disabled={deletingId === post.id}
-            className="shrink-0 rounded-full border border-border px-3 py-1 text-xs text-muted transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
-          >
-            {deletingId === post.id ? "Deleting..." : "Delete"}
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              href={`/admin/posts/${post.id}/edit`}
+              className="rounded-full border border-border px-3 py-1 text-xs text-muted transition hover:border-pink-dark hover:text-pink-dark"
+            >
+              Edit
+            </Link>
+            <button
+              type="button"
+              onClick={() => handleDelete(post.id)}
+              disabled={deletingId === post.id}
+              className="rounded-full border border-border px-3 py-1 text-xs text-muted transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
+            >
+              {deletingId === post.id ? "Deleting..." : "Delete"}
+            </button>
+          </div>
         </div>
       ))}
     </div>

@@ -2,31 +2,47 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { MAX_MEDIA_ITEMS } from "@/lib/constants";
 import { uploadMediaFiles } from "@/lib/uploadMedia";
 
-function todayInputValue(): string {
-  const d = new Date();
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+interface ExistingMedia {
+  url: string;
+  publicId: string;
+  type: "image" | "video";
 }
 
-export default function NewPostForm() {
+interface EditablePost {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  media: ExistingMedia[];
+}
+
+export default function EditPostForm({ post }: { post: EditablePost }) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [date, setDate] = useState(todayInputValue());
-  const [files, setFiles] = useState<File[]>([]);
+  const [title, setTitle] = useState(post.title);
+  const [content, setContent] = useState(post.content);
+  const [date, setDate] = useState(post.date);
+  const [existingMedia, setExistingMedia] = useState<ExistingMedia[]>(post.media);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [hasConflictingMessage, setHasConflictingMessage] = useState(false);
   const [checkingDate, setCheckingDate] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  const remainingSlots = MAX_MEDIA_ITEMS - existingMedia.length - newFiles.length;
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkDate() {
+      if (date === post.date) {
+        setHasConflictingMessage(false);
+        return;
+      }
       setCheckingDate(true);
       try {
         const data = await fetch(`/api/messages?date=${date}`).then((r) => r.json());
@@ -40,21 +56,25 @@ export default function NewPostForm() {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, post.date]);
 
   function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
-    if (picked.length > MAX_MEDIA_ITEMS) {
-      setError(`You can attach up to ${MAX_MEDIA_ITEMS} photos or videos.`);
-      setFiles(picked.slice(0, MAX_MEDIA_ITEMS));
+    if (picked.length > remainingSlots) {
+      setError(`You can attach up to ${MAX_MEDIA_ITEMS} photos or videos in total.`);
+      setNewFiles(picked.slice(0, Math.max(remainingSlots, 0)));
       return;
     }
     setError(null);
-    setFiles(picked);
+    setNewFiles(picked);
   }
 
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+  function removeNewFile(index: number) {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function removeExistingMedia(publicId: string) {
+    setExistingMedia((prev) => prev.filter((item) => item.publicId !== publicId));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -62,7 +82,7 @@ export default function NewPostForm() {
     setError(null);
 
     if (hasConflictingMessage) {
-      setError("This day already has a message. Remove it first if you want to add a post instead.");
+      setError("This day already has a message. Remove it first if you want to move this post there.");
       return;
     }
 
@@ -73,25 +93,25 @@ export default function NewPostForm() {
 
     setSubmitting(true);
     try {
-      if (files.length > 0) {
+      if (newFiles.length > 0) {
         setUploadStatus(
-          files.length === 1 ? "Uploading photo/video..." : `Uploading ${files.length} files...`
+          newFiles.length === 1 ? "Uploading photo/video..." : `Uploading ${newFiles.length} files...`
         );
       }
-      const media = await uploadMediaFiles(files);
+      const uploaded = await uploadMediaFiles(newFiles);
       setUploadStatus(null);
 
-      const res = await fetch("/api/posts", {
-        method: "POST",
+      const media = [...existingMedia, ...uploaded];
+
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content, date, media }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Something went wrong. Please try again.");
 
-      setTitle("");
-      setContent("");
-      setFiles([]);
+      router.push("/admin");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -104,7 +124,7 @@ export default function NewPostForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-4 space-y-3 rounded-2xl border border-border bg-surface p-4"
+      className="mt-6 space-y-3 rounded-2xl border border-border bg-surface p-4"
     >
       <div>
         <label className="text-xs text-muted">Date</label>
@@ -120,7 +140,6 @@ export default function NewPostForm() {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="A title for this memory"
           disabled={hasConflictingMessage}
           className="mt-1 w-full rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark disabled:opacity-50"
         />
@@ -130,7 +149,6 @@ export default function NewPostForm() {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Write about it..."
           rows={5}
           disabled={hasConflictingMessage}
           className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-2 text-sm outline-none focus:border-pink-dark disabled:opacity-50"
@@ -138,24 +156,51 @@ export default function NewPostForm() {
       </div>
       {hasConflictingMessage && !checkingDate && (
         <p className="text-sm text-red-500">
-          This day already has a message. Remove it first if you want to add a post instead.
+          This day already has a message. Remove it first if you want to move this post there.
         </p>
       )}
+
+      {existingMedia.length > 0 && (
+        <div>
+          <label className="text-xs text-muted">Current photos & videos</label>
+          <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {existingMedia.map((item) => (
+              <li key={item.publicId} className="group relative aspect-square overflow-hidden rounded-xl bg-cream">
+                {item.type === "video" ? (
+                  <video src={item.url} className="h-full w-full object-cover" muted />
+                ) : (
+                  <Image src={item.url} alt="" fill sizes="150px" className="object-cover" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeExistingMedia(item.publicId)}
+                  aria-label="Remove"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white hover:bg-red-500"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div>
         <label className="text-xs text-muted">
-          Photos & videos (optional, up to {MAX_MEDIA_ITEMS})
+          Add more photos & videos ({Math.max(remainingSlots, 0)} slot
+          {remainingSlots === 1 ? "" : "s"} left)
         </label>
         <input
           type="file"
           accept="image/*,video/*"
           multiple
           onChange={handleFilesChange}
-          disabled={hasConflictingMessage}
+          disabled={hasConflictingMessage || remainingSlots <= 0}
           className="mt-1 block w-full text-sm disabled:opacity-50"
         />
-        {files.length > 0 && (
+        {newFiles.length > 0 && (
           <ul className="mt-2 space-y-1">
-            {files.map((file, i) => (
+            {newFiles.map((file, i) => (
               <li
                 key={`${file.name}-${i}`}
                 className="flex items-center justify-between gap-2 rounded-full bg-background px-3 py-1 text-xs"
@@ -165,7 +210,7 @@ export default function NewPostForm() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeFile(i)}
+                  onClick={() => removeNewFile(i)}
                   className="shrink-0 text-muted hover:text-red-500"
                   aria-label={`Remove ${file.name}`}
                 >
@@ -176,15 +221,25 @@ export default function NewPostForm() {
           </ul>
         )}
       </div>
+
       {error && <p className="text-sm text-red-500">{error}</p>}
       {uploadStatus && <p className="text-sm text-muted">{uploadStatus}</p>}
-      <button
-        type="submit"
-        disabled={submitting || hasConflictingMessage}
-        className="rounded-full bg-pink-dark px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-      >
-        {submitting ? (uploadStatus ? "Uploading..." : "Posting...") : "Publish post"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting || hasConflictingMessage}
+          className="rounded-full bg-pink-dark px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+        >
+          {submitting ? (uploadStatus ? "Uploading..." : "Saving...") : "Save changes"}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/admin")}
+          className="rounded-full border border-border px-5 py-2 text-sm text-muted transition hover:text-pink-dark"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

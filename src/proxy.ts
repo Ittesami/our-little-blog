@@ -7,7 +7,9 @@ export async function proxy(request: NextRequest) {
   const isAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isCommentRoute = /^\/api\/posts\/[^/]+\/comments/.test(pathname);
   const isProtectedApi =
-    (pathname.startsWith("/api/posts") || pathname.startsWith("/api/messages")) &&
+    (pathname.startsWith("/api/posts") ||
+      pathname.startsWith("/api/messages") ||
+      pathname.startsWith("/api/cloudinary")) &&
     request.method !== "GET" &&
     !isCommentRoute;
 
@@ -30,5 +32,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/posts/:path*", "/api/messages/:path*"],
+  matcher: ["/admin/:path*", "/api/posts/:path*", "/api/messages/:path*", "/api/cloudinary/:path*"],
 };
